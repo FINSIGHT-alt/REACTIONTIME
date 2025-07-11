@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>⚡ Reflex Pro</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #dfe9f3, #ffffff);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #007bff;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.2rem;
+    }
+
+    header p {
+      margin-top: 0;
+      color: #555;
+      font-size: 1rem;
+    }
+
+    .card {
+      background: white;
+      width: 100%;
+      max-width: 700px;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .menu {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .menu button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .menu button:hover {
+      background-color: #0056b3;
+    }
+
+    .screen {
+      width: 100%;
+      height: 300px;
+      background-color: red;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 2rem;
+      border-radius: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.4s ease;
+      text-align: center;
+    }
+
+    .player-inputs {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .player-inputs input {
+      padding: 10px;
+      width: 180px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .score-panel {
+      width: 260px;
+      background: #222;
+      color: white;
+      padding: 1rem;
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      transform: translateX(100%);
+      transition: transform 0.4s ease;
+      z-index: 10;
+    }
+
+    .score-panel.active {
+      transform: translateX(0%);
+    }
+
+    .score-panel h2 {
+      margin-top: 0;
+    }
+
+    .score-panel ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .score-panel li {
+      padding: 6px 0;
+      font-size: 1rem;
+    }
+
+    .toggle-panel {
+      position: absolute;
+      right: 0;
+      top: 0;
+      background: #007bff;
+      color: white;
+      padding: 0.6rem 1rem;
+      border-radius: 0 0 0 12px;
+      cursor: pointer;
+      z-index: 20;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .screen {
+        height: 220px;
+        font-size: 1.5rem;
+      }
+
+      .menu {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toggle-panel" onclick="togglePanel()">Top Scores</div>
+  <div class="score-panel" id="scorePanel">
+    <h2>Top Scores</h2>
+    <ul id="scoreList"></ul>
+  </div>
+
+  <div class="app">
+    <header>
+      <h1>⚡ Reflex Pro</h1>
+      <p>Test your reaction speed — solo or face off in 1v1 mode.</p>
+    </header>
+
+    <div class="card">
+      <div class="menu">
+        <button onclick="startSolo()">Start Solo</button>
+        <button onclick="show1v1Inputs()">1v1 Mode</button>
+      </div>
+
+      <div class="player-inputs" id="nameInputs" style="display: none;">
+        <input type="text" placeholder="Player 1 Name" id="player1" />
+        <input type="text" placeholder="Player 2 Name" id="player2" />
+        <button onclick="start1v1()">Start Match</button>
+      </div>
+
+      <div class="screen" id="screen">Click Start to Begin</div>
+    </div>
+  </div>
+
+  <script>
+    const screen = document.getElementById('screen');
+    const scoreList = document.getElementById('scoreList');
+    const scorePanel = document.getElementById('scorePanel');
+    const nameInputs = document.getElementById('nameInputs');
+
+    let highScores = [];
+    let state = 'idle';
+    let timeout, startTime;
+    let mode = 'solo'; // solo or 1v1
+    let p1 = '', p2 = '';
+    let p1Time = 0, p2Time = 0;
+    let currentPlayer = 1;
+
+    function togglePanel() {
+      scorePanel.classList.toggle('active');
+    }
+
+    function updateScores(time, player = null) {
+      const label = player ? `${player}: ${formatTime(time)}` : formatTime(time);
+      highScores.push(label);
+      highScores = highScores.sort((a, b) => {
+        const t1 = parseFloat(a.match(/[\d.]+/)[0]);
+        const t2 = parseFloat(b.match(/[\d.]+/)[0]);
+        return t1 - t2;
+      }).slice(0, 5);
+      renderScores();
+    }
+
+    function renderScores() {
+      scoreList.innerHTML = '';
+      highScores.forEach(score => {
+        const li = document.createElement('li');
+        li.textContent = score;
+        scoreList.appendChild(li);
+      });
+    }
+
+    function formatTime(ms) {
+      return ms < 1000 ? `${ms.toFixed(0)} ms` : `${(ms / 1000).toFixed(2)} s`;
+    }
+
+    function randomDelay() {
+      return Math.random() * 4000 + 1000;
+    }
+
+    function show1v1Inputs() {
+      nameInputs.style.display = 'flex';
+    }
+
+    function start1v1() {
+      p1 = document.getElementById('player1').value || 'Player 1';
+      p2 = document.getElementById('player2').value || 'Player 2';
+      nameInputs.style.display = 'none';
+      mode = '1v1';
+      currentPlayer = 1;
+      screen.textContent = `${p1}, Click to Start`;
+      screen.style.backgroundColor = '#444';
+      state = 'waiting';
+    }
+
+    function startSolo() {
+      mode = 'solo';
+      screen.textContent = 'Wait for Green...';
+      screen.style.backgroundColor = 'red';
+      state = 'ready';
+
+      timeout = setTimeout(() => {
+        screen.style.backgroundColor = 'green';
+        screen.textContent = 'CLICK!';
+        startTime = new Date().getTime();
+        state = 'go';
+      }, randomDelay());
+    }
+
+    screen.addEventListener('click', () => {
+      if (mode === 'solo') {
+        handleSoloClick();
+      } else {
+        handle1v1Click();
+      }
+    });
+
+    function handleSoloClick() {
+      if (state === 'ready') {
+        clearTimeout(timeout);
+        screen.textContent = 'Too Soon! Try Again.';
+        screen.style.backgroundColor = '#c00';
+        state = 'idle';
+      } else if (state === 'go') {
+        const rt = new Date().getTime() - startTime;
+        screen.textContent = `Your Time: ${formatTime(rt)}\nClick Start to Retry`;
+        screen.style.backgroundColor = '#222';
+        updateScores(rt);
+        state = 'idle';
+      }
+    }
+
+    function handle1v1Click() {
+      if (state === 'waiting') {
+        state = 'ready';
+        screen.style.backgroundColor = 'red';
+        screen.textContent = 'Wait for Green...';
+
+        timeout = setTimeout(() => {
+          screen.style.backgroundColor = 'green';
+          screen.textContent = 'CLICK!';
+          startTime = new Date().getTime();
+          state = 'go';
+        }, randomDelay());
+      } else if (state === 'ready') {
+        clearTimeout(timeout);
+        screen.textContent = 'Too Soon! Restarting...';
+        screen.style.backgroundColor = '#c00';
+        setTimeout(() => {
+          nextPlayerTurn();
+        }, 1000);
+      } else if (state === 'go') {
+        const rt = new Date().getTime() - startTime;
+        if (currentPlayer === 1) {
+          p1Time = rt;
+          currentPlayer = 2;
+          screen.textContent = `${p2}, Click to Start`;
+          screen.style.backgroundColor = '#444';
+          state = 'waiting';
+        } else {
+          p2Time = rt;
+          screen.style.backgroundColor = '#222';
+          if (p1Time < p2Time) {
+            screen.textContent = `${p1} Wins! (${formatTime(p1Time)} vs ${formatTime(p2Time)})`;
+            updateScores(p1Time, p1);
+          } else {
+            screen.textContent = `${p2} Wins! (${formatTime(p2Time)} vs ${formatTime(p1Time)})`;
+            updateScores(p2Time, p2);
+          }
+          state = 'idle';
+        }
+      }
+    }
+
+    function nextPlayerTurn() {
+      screen.style.backgroundColor = '#444';
+      screen.textContent = currentPlayer === 1 ? `${p1}, Click to Start` : `${p2}, Click to Start`;
+      state = 'waiting';
+    }
+  </script>
+</body>
+</html>
+
